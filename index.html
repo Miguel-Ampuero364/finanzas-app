@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1f6f5c">
+  <title>Finanzas</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <div class="espacios" role="group" aria-label="Espacio">
+      <button type="button" data-espacio="miguel">Miguel</button>
+      <button type="button" data-espacio="metalcorplex">METALCORPLEX</button>
+    </div>
+    <p id="estado" class="estado" role="status"></p>
+  </header>
+
+  <main>
+    <section id="vista-registrar" class="vista">
+      <form id="form-registro" autocomplete="off">
+        <label>Escríbelo rápido
+          <input id="texto-rapido" type="text" placeholder="gym 180 qr    ·    + sueldo 2000" enterkeyhint="done">
+        </label>
+        <div class="fila">
+          <label>Tipo
+            <select id="tipo"><option value="gasto">Gasto</option><option value="ingreso">Ingreso</option></select>
+          </label>
+          <label>Fecha <input id="fecha" type="date" required></label>
+        </div>
+        <label>Monto (Bs) <input id="monto" type="text" inputmode="decimal" required></label>
+        <label>Descripción <input id="descripcion" type="text" maxlength="200"></label>
+        <label>Categoría <select id="categoria" required></select></label>
+        <div class="fila" id="fila-gasto">
+          <label>Beneficiario
+            <input id="beneficiario" type="text" list="lista-beneficiarios" maxlength="60">
+            <datalist id="lista-beneficiarios"></datalist>
+          </label>
+          <label>Método
+            <select id="metodo">
+              <option>QR</option><option>Efectivo</option><option>Tarjeta</option><option>Transferencia</option>
+            </select>
+          </label>
+        </div>
+        <button type="submit" class="principal">Guardar</button>
+        <p id="mensaje" role="status"></p>
+      </form>
+      <h2>Pendientes de subir</h2>
+      <ul id="lista-cola" class="lista"></ul>
+    </section>
+
+    <section id="vista-resumen" class="vista" hidden>
+      <div class="filtros">
+        <label class="campo-periodo">
+          <span class="sr">Período</span>
+          <select id="f-periodo"></select>
+        </label>
+        <button type="button" id="btn-exportar" class="btn" aria-label="Exportar los movimientos filtrados a CSV"></button>
+      </div>
+      <div id="f-personas" class="chips" role="group" aria-label="Beneficiario" hidden></div>
+      <div id="f-activos" class="activos" hidden></div>
+      <p id="res-aviso" class="nota" role="status"></p>
+
+      <p id="res-vacio" class="vacio" hidden>Todavía no hay movimientos para mostrar. Conecta tu hoja en Ajustes o registra el primero.</p>
+
+      <div id="res-rejilla" class="rejilla-resumen">
+        <section id="res-saldo" class="res-tarjeta saldo" aria-label="Saldo actual"></section>
+        <section id="res-kpi" class="res-tarjeta" aria-label="Totales del período"></section>
+        <section id="res-cat" class="res-tarjeta" aria-labelledby="t-cat"></section>
+        <section id="res-ben" class="res-tarjeta" aria-labelledby="t-ben"></section>
+        <section id="res-serie" class="res-tarjeta" aria-labelledby="t-serie"></section>
+        <section id="res-mov" class="res-tarjeta ancho" aria-labelledby="t-mov">
+          <div class="mov-cabecera">
+            <h2 id="t-mov">Movimientos</h2>
+            <span id="mov-cuenta" class="nota"></span>
+          </div>
+          <div class="mov-controles">
+            <label class="busca">
+              <span class="sr">Buscar movimientos</span>
+              <input id="f-texto" type="search" placeholder="Buscar en movimientos" autocomplete="off">
+            </label>
+            <label class="orden">
+              <span class="sr">Ordenar por</span>
+              <select id="f-orden">
+                <option value="fecha">Más recientes</option>
+                <option value="fecha-asc">Más antiguos</option>
+                <option value="monto">Mayor monto</option>
+              </select>
+            </label>
+          </div>
+          <ul id="lista-mov" class="mov"></ul>
+          <button type="button" id="mov-mas" class="btn ancho-total" hidden></button>
+        </section>
+      </div>
+    </section>
+
+    <section id="vista-deudas" class="vista" hidden>
+      <div id="contenido-deudas"></div>
+    </section>
+
+    <section id="vista-ajustes" class="vista" hidden>
+      <div id="contenido-ajustes"></div>
+    </section>
+  </main>
+
+  <nav>
+    <button type="button" data-vista="registrar">Registrar</button>
+    <button type="button" data-vista="resumen">Resumen</button>
+    <button type="button" data-vista="deudas">Deudas</button>
+    <button type="button" data-vista="ajustes">Ajustes</button>
+  </nav>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
