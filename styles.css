@@ -58,6 +58,15 @@ button.principal:hover { background: var(--marca-fuerte); }
 .chico { margin-top: 8px; min-height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--marca); background: transparent; color: var(--marca); font: inherit; font-weight: 600; }
 #mensaje { min-height: 22px; font-size: 14px; }
 
+/* ---- Formulario de registro ---- */
+.etiqueta { display: block; font-size: 13px; color: var(--suave); margin-bottom: 6px; }
+.campo { margin-bottom: 12px; }
+.campo .chips { flex-wrap: wrap; overflow: visible; padding-bottom: 8px; }
+.campo input { margin-top: 0; }
+#frecuentes-caja { margin-bottom: 10px; }
+#frecuentes-caja .chips { padding-bottom: 4px; }
+.chip small { margin-left: 6px; font-size: 12px; font-weight: 500; opacity: .75; font-variant-numeric: tabular-nums; }
+
 /* ---- Listas y tarjetas generales (registro, deudas, ajustes) ---- */
 .lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .tarjeta, .lista li { background: var(--papel); border: 1px solid var(--linea); border-radius: var(--radio-medio); padding: 12px; }

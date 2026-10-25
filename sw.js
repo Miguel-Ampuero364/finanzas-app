@@ -2,9 +2,9 @@ const VERSION = 'finanzas-v1';
 const ARCHIVOS = [
   './', 'index.html', 'styles.css', 'app.js', 'manifest.webmanifest',
   'dom.js', 'iconos.js', 'resumen.js',
-  'lib/api.js', 'lib/charts.js', 'lib/dates.js', 'lib/exportar.js', 'lib/money.js', 'lib/parser.js', 'lib/periodo.js',
+  'lib/api.js', 'lib/charts.js', 'lib/dates.js', 'lib/exportar.js', 'lib/frecuentes.js', 'lib/money.js', 'lib/parser.js', 'lib/periodo.js',
   'lib/queue.js', 'lib/suggest.js', 'lib/summary.js',
-  'icons/icon-192.png', 'icons/icon-512.png',
+  'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',
 ];
 
 self.addEventListener('install', (e) => e.waitUntil(caches.open(VERSION).then((c) => c.addAll(ARCHIVOS))));

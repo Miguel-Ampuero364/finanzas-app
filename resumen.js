@@ -10,6 +10,7 @@ import {
 import { geometriaSerie } from './lib/charts.js';
 import { normalizar } from './lib/suggest.js';
 import { aCsv, nombreArchivo } from './lib/exportar.js';
+import { nombresPersonas } from './lib/frecuentes.js';
 
 const SVG = 'http://www.w3.org/2000/svg';
 const POR_PAGINA = 15;
@@ -71,12 +72,7 @@ export function iniciarResumen({ obtener, limite }) {
     sel.replaceChildren(...c.opciones.map((o) => el('option', { value: o.valor, selected: o.valor === S.periodo }, o.etiqueta)));
     sel.value = S.periodo;
 
-    const nombres = [];
-    const vistos = new Set();
-    for (const n of [...(c.config?.beneficiarios ?? []), ...c.gastos.map((f) => f.beneficiario)]) {
-      const limpio = String(n ?? '').trim();
-      if (limpio && !vistos.has(normalizar(limpio))) { vistos.add(normalizar(limpio)); nombres.push(limpio); }
-    }
+    const nombres = nombresPersonas(c.config?.beneficiarios, c.gastos);
     const chips = $('f-personas');
     chips.hidden = nombres.length === 0;
     chips.replaceChildren(...['', ...nombres].map((n) =>

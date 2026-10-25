@@ -7,7 +7,11 @@
   <title>Finanzas</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon-192.png">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Finanzas">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -22,6 +26,10 @@
   <main>
     <section id="vista-registrar" class="vista">
       <form id="form-registro" autocomplete="off">
+        <div id="frecuentes-caja" hidden>
+          <span class="etiqueta">Frecuentes: un toque llena todo, solo revisa el monto</span>
+          <div id="frecuentes" class="chips" role="group" aria-label="Gastos frecuentes"></div>
+        </div>
         <label>Escríbelo rápido
           <input id="texto-rapido" type="text" placeholder="gym 180 qr    ·    + sueldo 2000" enterkeyhint="done">
         </label>
@@ -34,11 +42,12 @@
         <label>Monto (Bs) <input id="monto" type="text" inputmode="decimal" required></label>
         <label>Descripción <input id="descripcion" type="text" maxlength="200"></label>
         <label>Categoría <select id="categoria" required></select></label>
-        <div class="fila" id="fila-gasto">
-          <label>Beneficiario
-            <input id="beneficiario" type="text" list="lista-beneficiarios" maxlength="60">
-            <datalist id="lista-beneficiarios"></datalist>
-          </label>
+        <div id="fila-gasto">
+          <div class="campo">
+            <span class="etiqueta" id="etiqueta-benef">Beneficiario</span>
+            <div id="benef-chips" class="chips" role="group" aria-labelledby="etiqueta-benef"></div>
+            <input id="beneficiario" type="text" maxlength="60" placeholder="Otro nombre" aria-label="Otro beneficiario">
+          </div>
           <label>Método
             <select id="metodo">
               <option>QR</option><option>Efectivo</option><option>Tarjeta</option><option>Transferencia</option>

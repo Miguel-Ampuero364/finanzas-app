@@ -1,7 +1,8 @@
 import { crearApi, ErrorDeRed } from './lib/api.js';
 import { crearCola, nuevoId, enviarPendientes, resultadoGuardado } from './lib/queue.js';
 import { interpretarTexto } from './lib/parser.js';
-import { sugerir, canonizar } from './lib/suggest.js';
+import { sugerir, canonizar, normalizar } from './lib/suggest.js';
+import { frecuentes, nombresPersonas } from './lib/frecuentes.js';
 import { el } from './dom.js';
 import { icono } from './iconos.js';
 import { iniciarResumen } from './resumen.js';
@@ -37,8 +38,17 @@ const leerJson = (k, defecto) => {
 const guardarJson = (k, v) => almacen.setItem(k, JSON.stringify(v));
 
 // ---- Estado ----
+// Un ícono por espacio: la dirección con ?espacio=metalcorplex abre directo en ese espacio.
+function espacioInicial() {
+  const pedido = new URLSearchParams(location.search).get('espacio');
+  if (pedido === 'miguel' || pedido === 'metalcorplex') {
+    almacen.setItem('espacio', pedido);
+    return pedido;
+  }
+  return almacen.getItem('espacio') === 'metalcorplex' ? 'metalcorplex' : 'miguel';
+}
 const estado = {
-  espacio: almacen.getItem('espacio') === 'metalcorplex' ? 'metalcorplex' : 'miguel',
+  espacio: espacioInicial(),
   vista: 'registrar',
   config: null,
   saldo: null,
@@ -55,6 +65,7 @@ const api = () => {
   return a.url && a.token ? crearApi({ url: a.url, token: a.token }) : null;
 };
 
+let fechaAuto = '';
 function hoyIso() {
   const d = new Date();
   const dos = (n) => String(n).padStart(2, '0');
@@ -131,8 +142,39 @@ function pintarFormulario() {
   const actual = $('categoria').value;
   $('categoria').replaceChildren(...lista.map((c) => el('option', { value: c }, c.trim())));
   if (lista.includes(actual)) $('categoria').value = actual;
-  const nombres = new Set([...(estado.config?.beneficiarios ?? []), ...estado.filas.gastos.map((f) => f.beneficiario).filter(Boolean)]);
-  $('lista-beneficiarios').replaceChildren(...[...nombres].map((n) => el('option', { value: n })));
+  // Si la hoja tiene su lista de beneficiarios, solo esos; si no, los que ya aparecen en los gastos.
+  const deLaHoja = (estado.config?.beneficiarios ?? []).map((n) => String(n).trim()).filter(Boolean);
+  const nombres = deLaHoja.length ? deLaHoja : nombresPersonas([], estado.filas.gastos);
+  const elegido = normalizar($('beneficiario').value);
+  $('benef-chips').replaceChildren(...nombres.map((n) => el('button', {
+    type: 'button', class: 'chip', 'aria-pressed': String(elegido === normalizar(n)),
+    onclick: () => { $('beneficiario').value = elegido === normalizar(n) ? '' : n; pintarFormulario(); },
+  }, n)));
+  $('beneficiario').hidden = deLaHoja.length > 0;
+  pintarFrecuentes(esGasto);
+}
+
+function pintarFrecuentes(esGasto) {
+  const items = esGasto ? frecuentes(estado.filas.gastos, 6) : [];
+  $('frecuentes-caja').hidden = items.length === 0;
+  $('frecuentes').replaceChildren(...items.map((f) => el('button', { type: 'button', class: 'chip frecuente', onclick: () => usarFrecuente(f) },
+    f.descripcion, el('small', {}, f.monto))));
+}
+
+// Un toque llena todo con el último registro igual; solo queda revisar el monto.
+function usarFrecuente(f) {
+  $('tipo').value = 'gasto';
+  pintarFormulario();
+  const cat = canonizar(f.categoria, estado.config?.categoriasGasto ?? []);
+  if (cat) $('categoria').value = cat;
+  $('descripcion').value = f.descripcion;
+  $('beneficiario').value = f.beneficiario;
+  if (f.metodo) $('metodo').value = f.metodo;
+  $('monto').value = f.monto;
+  pintarFormulario();
+  $('mensaje').textContent = `Listo: revisa el monto de "${f.descripcion}" y pulsa Guardar.`;
+  $('monto').focus();
+  $('monto').select();
 }
 
 function pintarCola() {
@@ -228,6 +270,7 @@ function alEscribirRapido() {
     if (cat) $('categoria').value = cat;
     if (s?.beneficiario) $('beneficiario').value = s.beneficiario;
   }
+  pintarFormulario();
 }
 
 async function guardar(ev) {
@@ -244,6 +287,9 @@ async function guardar(ev) {
     monto, metodo: esGasto ? $('metodo').value : '',
   });
   for (const id of ['texto-rapido', 'monto', 'descripcion', 'beneficiario']) $(id).value = '';
+  $('tipo').value = 'gasto';
+  fechaAuto = hoyIso();
+  $('fecha').value = fechaAuto;
   msg.textContent = 'Guardado. Subiendo…';
   pintar();
   await sincronizar();
@@ -255,10 +301,12 @@ async function guardar(ev) {
     clave: ERRORES.clave,
     pendiente: 'Guardado en el celular; se subirá cuando haya conexión.',
   }[resultado];
+  $('texto-rapido').focus({ preventScroll: true });
 }
 
 function iniciar() {
-  $('fecha').value = hoyIso();
+  fechaAuto = hoyIso();
+  $('fecha').value = fechaAuto;
   const iconosNav = { registrar: 'mas', resumen: 'grafico', deudas: 'lista', ajustes: 'ajustes' };
   document.querySelectorAll('nav [data-vista]').forEach((b) => b.prepend(icono(iconosNav[b.dataset.vista], 22)));
   document.querySelectorAll('[data-espacio]').forEach((b) => b.addEventListener('click', () => {
@@ -269,13 +317,28 @@ function iniciar() {
     pintar();
     sincronizar();
   }));
-  document.querySelectorAll('[data-vista]').forEach((b) => b.addEventListener('click', () => { estado.vista = b.dataset.vista; animarResumen = true; pintar(); }));
+  document.querySelectorAll('[data-vista]').forEach((b) => b.addEventListener('click', () => {
+    estado.vista = b.dataset.vista;
+    animarResumen = true;
+    pintar();
+    if (estado.vista === 'registrar') $('texto-rapido').focus({ preventScroll: true });
+  }));
   $('texto-rapido').addEventListener('input', alEscribirRapido);
   $('tipo').addEventListener('change', pintarFormulario);
   $('form-registro').addEventListener('submit', guardar);
   window.addEventListener('online', sincronizar);
+  // Si dejas la app abierta de un día para otro, la fecha se actualiza sola (salvo que la hayas cambiado a mano).
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    const hoy = hoyIso();
+    if ($('fecha').value === fechaAuto && hoy !== fechaAuto) {
+      $('fecha').value = hoy;
+      fechaAuto = hoy;
+    }
+  });
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   cargarCache();
   sincronizar();
+  if (estado.vista === 'registrar') $('texto-rapido').focus({ preventScroll: true });
 }
 iniciar();
