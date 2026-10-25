@@ -1,18 +1,18 @@
-/* Finanzas: verde bosque para lo que entra y para la marca, terracota para lo que sale. */
+/* Finanzas: verde vivo (cabecera con degradado) para la marca y lo que entra, terracota para lo que sale. */
 :root {
   color-scheme: light dark;
   --fondo: #f3f2ec; --papel: #ffffff; --papel-2: #f8f7f2; --texto: #15201b; --suave: #56645c; --linea: #e0ded3; --borde-campo: #8c8a7d;
-  --marca: #17705b; --marca-fuerte: #0f5645; --marca-tinte: #e1f0ea; --sobre-marca: #ffffff;
-  --ingreso: #17705b; --gasto: #c4573a; --gasto-texto: #a4402a; --gasto-tinte: #fbe8e2; --bien-tinte: #e1f0ea; --aviso: #8f5a0f;
+  --marca: #2e8a10; --marca-fuerte: #226c0b; --marca-tinte: #e6f3dc; --cab-a: #3f9a12; --cab-b: #6fb40a; --sobre-marca: #ffffff;
+  --ingreso: #2e8a10; --gasto: #c4573a; --gasto-texto: #a4402a; --gasto-tinte: #fbe8e2; --bien-tinte: #e6f3dc; --aviso: #8f5a0f;
   --sombra: 0 1px 2px rgba(21, 32, 27, .05), 0 10px 28px rgba(21, 32, 27, .07);
-  --radio: 18px; --radio-medio: 12px; --ease: cubic-bezier(.16, 1, .3, 1);
+  --radio: 22px; --radio-medio: 12px; --ease: cubic-bezier(.16, 1, .3, 1);
   --fuente: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --fondo: #0e1311; --papel: #161d1a; --papel-2: #1b2420; --texto: #e8eeeb; --suave: #9eaba4; --linea: #27332e; --borde-campo: #5f7068;
-    --marca: #47b898; --marca-fuerte: #86d6bd; --marca-tinte: #163329; --sobre-marca: #07130e;
-    --ingreso: #47b898; --gasto: #ee8466; --gasto-texto: #f4a58d; --gasto-tinte: #3b2119; --bien-tinte: #163329; --aviso: #e4b861;
+    --marca: #7cc84a; --marca-fuerte: #a6dd7c; --marca-tinte: #1d3318; --sobre-marca: #08120a; --cab-a: #1d4a10; --cab-b: #2d6a14;
+    --ingreso: #7cc84a; --gasto: #ee8466; --gasto-texto: #f4a58d; --gasto-tinte: #3b2119; --bien-tinte: #1d3318; --aviso: #e4b861;
     --sombra: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 28px rgba(0, 0, 0, .35);
   }
 }
@@ -27,12 +27,13 @@ h3 { font-size: 15px; font-weight: 650; margin: 18px 0 8px; }
 [hidden] { display: none !important; }
 
 /* ---- Estructura ---- */
-header { position: sticky; top: 0; z-index: 3; background: var(--fondo); background: color-mix(in srgb, var(--fondo) 92%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); padding: 12px max(16px, env(safe-area-inset-right)) 8px max(16px, env(safe-area-inset-left)); border-bottom: 1px solid var(--linea); }
+header { position: sticky; top: 0; z-index: 3; background: var(--cab-a); background: linear-gradient(165deg, var(--cab-b) 0%, var(--cab-a) 70%); color: #fff; padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 14px max(16px, env(safe-area-inset-left)); border-radius: 0 0 28px 28px; box-shadow: 0 6px 20px rgba(20, 60, 10, .18); }
 main { padding: 16px; padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); max-width: 560px; margin: 0 auto; }
-.espacios { display: flex; gap: 6px; padding: 4px; background: var(--papel); border: 1px solid var(--linea); border-radius: 999px; max-width: 560px; margin: 0 auto; }
-.espacios button { flex: 1; min-height: 44px; padding: 0 12px; border: 0; background: transparent; color: var(--suave); border-radius: 999px; font: inherit; font-weight: 600; transition: background-color .2s var(--ease), color .2s var(--ease); }
-.espacios button.activo { background: var(--marca); color: var(--sobre-marca); }
-.estado { margin: 6px auto 0; max-width: 560px; font-size: 13px; color: var(--suave); min-height: 18px; }
+.espacios { display: flex; gap: 6px; padding: 4px; background: rgba(0, 30, 0, .22); border-radius: 999px; max-width: 560px; margin: 0 auto; }
+.espacios button { flex: 1; min-height: 44px; padding: 0 12px; border: 0; background: transparent; color: #fff; border-radius: 999px; font: inherit; font-weight: 600; transition: background-color .2s var(--ease), color .2s var(--ease); }
+.espacios button.activo { background: #fff; color: #226c0b; }
+.espacios button:focus-visible { outline-color: #fff; }
+.estado { margin: 8px auto 0; max-width: 560px; font-size: 13px; color: #fff; opacity: .92; min-height: 18px; }
 .nota { margin: 4px 0 0; font-size: 13px; color: var(--suave); }
 .vacio { color: var(--suave); padding: 12px 0; margin: 0; }
 
@@ -158,7 +159,8 @@ main.ancho { max-width: 1040px; }
 .mov-monto.ingreso { color: var(--ingreso); }
 .etiqueta-pend { margin-left: 8px; padding: 1px 8px; font-size: 11px; font-style: normal; font-weight: 650; color: var(--aviso); background: color-mix(in srgb, var(--aviso) 14%, transparent); border-radius: 999px; }
 
-#res-saldo { background: var(--marca-tinte); border-color: color-mix(in srgb, var(--marca) 30%, var(--linea)); }
+#res-saldo { border-color: transparent; }
+#res-saldo .cifra { font-size: 42px; }
 #res-saldo .cifra { margin-bottom: 8px; }
 
 /* ---- Una sola escena de movimiento: las barras crecen al cambiar de período ---- */
