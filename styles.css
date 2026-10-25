@@ -61,6 +61,12 @@ button.principal:hover { background: var(--marca-fuerte); }
 .chico { margin-top: 8px; min-height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--marca); background: transparent; color: var(--marca); font: inherit; font-weight: 600; }
 #mensaje { min-height: 22px; font-size: 14px; }
 
+/* ---- Diagnóstico ---- */
+#diagnostico { margin-top: 14px; }
+#diagnostico .btn { margin-top: 10px; }
+.acciones { display: flex; flex-wrap: wrap; gap: 8px; }
+#informe { margin: 12px 0 0; padding: 12px; max-height: 340px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.5 ui-monospace, "SF Mono", Menlo, monospace; color: var(--texto); background: var(--papel-2); border: 1px solid var(--linea); border-radius: var(--radio-medio); -webkit-user-select: text; user-select: text; }
+
 /* ---- Formulario de registro ---- */
 .etiqueta { display: block; font-size: 13px; color: var(--suave); margin-bottom: 6px; }
 .campo { margin-bottom: 12px; }

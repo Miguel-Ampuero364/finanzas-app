@@ -112,6 +112,17 @@
 
     <section id="vista-ajustes" class="vista" hidden>
       <div id="contenido-ajustes"></div>
+      <div class="tarjeta" id="diagnostico">
+        <h3>Diagnóstico del teléfono</h3>
+        <p class="nota">Revisa si la app funciona bien en este teléfono y arma un informe para compartirlo. No incluye claves, direcciones ni los datos de tus hojas.</p>
+        <button type="button" id="btn-diagnostico" class="btn">Ejecutar diagnóstico</button>
+        <pre id="informe" hidden tabindex="0"></pre>
+        <div id="acciones-informe" class="acciones" hidden>
+          <button type="button" id="btn-copiar" class="btn">Copiar informe</button>
+          <button type="button" id="btn-probar-descarga" class="btn">Probar descarga de CSV</button>
+        </div>
+        <p id="msg-diagnostico" class="nota" role="status"></p>
+      </div>
     </section>
   </main>
 

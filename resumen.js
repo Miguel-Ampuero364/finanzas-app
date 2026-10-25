@@ -1,4 +1,4 @@
-import { el, poner } from './dom.js';
+import { el, poner, descargar } from './dom.js';
 import { icono } from './iconos.js';
 import { formatMonto, formatCompacto, formatMovimiento, parseMonto } from './lib/money.js';
 import { claveMes, claveMesDe, etiquetaMes, etiquetaCorta, parseFecha } from './lib/dates.js';
@@ -24,15 +24,6 @@ function svg(tag, attrs = {}, ...hijos) {
   for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
   for (const h of hijos.flat()) if (h) e.append(h);
   return e;
-}
-
-function descargar(nombre, texto) {
-  const url = URL.createObjectURL(new Blob([texto], { type: 'text/csv;charset=utf-8' }));
-  const a = el('a', { href: url, download: nombre });
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // obtener() -> { gastos, ingresos, config, espacio, hayDatosGuardados }; limite = filas que trae el puente.

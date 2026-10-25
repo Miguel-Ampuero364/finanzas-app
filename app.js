@@ -3,7 +3,10 @@ import { crearCola, nuevoId, enviarPendientes, resultadoGuardado } from './lib/q
 import { interpretarTexto } from './lib/parser.js';
 import { sugerir, canonizar, normalizar } from './lib/suggest.js';
 import { frecuentes, nombresPersonas } from './lib/frecuentes.js';
-import { el } from './dom.js';
+import { el, descargar } from './dom.js';
+import { aCsv } from './lib/exportar.js';
+import { informeDiagnostico } from './lib/diagnostico.js';
+import { recogerDiagnostico } from './diagnostico.js';
 import { icono } from './iconos.js';
 import { iniciarResumen } from './resumen.js';
 import { ajustarSaldo } from './lib/summary.js';
@@ -36,6 +39,12 @@ const leerJson = (k, defecto) => {
   try { return JSON.parse(almacen.getItem(k) ?? 'null') ?? defecto; } catch { return defecto; }
 };
 const guardarJson = (k, v) => almacen.setItem(k, JSON.stringify(v));
+
+// Los últimos errores se guardan para el informe de diagnóstico.
+const erroresRecientes = [];
+const anotarError = (m) => { erroresRecientes.push(String(m ?? 'error').slice(0, 140)); if (erroresRecientes.length > 5) erroresRecientes.shift(); };
+window.addEventListener('error', (e) => anotarError(e.message));
+window.addEventListener('unhandledrejection', (e) => anotarError(e.reason?.message ?? e.reason));
 
 // ---- Estado ----
 // Un ícono por espacio: la dirección con ?espacio=metalcorplex abre directo en ese espacio.
@@ -134,7 +143,8 @@ function pintar() {
   if (estado.vista === 'resumen') resumen.pintar({ anim: animarResumen });
   animarResumen = false;
   pintarDeudas();
-  if (estado.vista === 'ajustes') pintarAjustes();
+  // Ajustes se dibuja al entrar, no en cada sincronización: así no se borra lo que estás escribiendo.
+  if (estado.vista === 'ajustes' && redibujarAjustes) { pintarAjustes(); redibujarAjustes = false; }
 }
 
 function pintarFormulario() {
@@ -200,6 +210,7 @@ function filasConPendientes() {
 }
 
 let animarResumen = false;
+let redibujarAjustes = false;
 const resumen = iniciarResumen({
   limite: LIMITE_FILAS,
   obtener: () => ({
@@ -314,6 +325,57 @@ async function guardar(ev) {
   $('texto-rapido').focus({ preventScroll: true });
 }
 
+// ---- Diagnóstico del teléfono ----
+let informeTexto = '';
+
+async function ejecutarDiagnostico() {
+  const boton = $('btn-diagnostico');
+  boton.disabled = true;
+  $('msg-diagnostico').textContent = 'Revisando… puede tardar unos segundos.';
+  try {
+    const espacios = ['miguel', 'metalcorplex'].map((nombre) => {
+      const a = ajustes(nombre);
+      const c = crearCola(almacen, `cola:${nombre}`);
+      const filas = leerJson(`cache:${nombre}:filas`, { gastos: [], ingresos: [] });
+      return {
+        nombre: NOMBRES[nombre],
+        api: a.url && a.token ? crearApi({ url: a.url, token: a.token }) : null,
+        pendientes: c.pendientes().length,
+        rechazadas: c.lista().filter((e) => e.rechazo).length,
+        gastos: filas.gastos.length,
+        ingresos: filas.ingresos.length,
+      };
+    });
+    informeTexto = informeDiagnostico(await recogerDiagnostico({ espacios, estadoTexto: $('estado').textContent, errores: erroresRecientes }));
+    $('informe').textContent = informeTexto;
+    $('informe').hidden = false;
+    $('acciones-informe').hidden = false;
+    $('msg-diagnostico').textContent = 'Listo. Toca "Copiar informe" y pégalo en el chat.';
+  } catch (err) {
+    $('msg-diagnostico').textContent = `No se pudo armar el informe: ${err?.message ?? 'error desconocido'}`;
+  }
+  boton.disabled = false;
+}
+
+async function copiarInforme() {
+  try {
+    await navigator.clipboard.writeText(informeTexto);
+    $('msg-diagnostico').textContent = 'Copiado. Pégalo en el chat.';
+  } catch {
+    const rango = document.createRange();
+    rango.selectNodeContents($('informe'));
+    const seleccion = getSelection();
+    seleccion.removeAllRanges();
+    seleccion.addRange(rango);
+    $('msg-diagnostico').textContent = 'No pude copiarlo solo: el texto quedó seleccionado. Mantén pulsado y elige Copiar.';
+  }
+}
+
+function probarDescarga() {
+  descargar('prueba-diagnostico.csv', aCsv([{ tipo: 'gasto', fecha: '25/10/2026', categoria: 'Prueba', beneficiario: 'Yo', descripcion: 'Archivo de prueba', monto: '1,00', metodo: 'QR' }]));
+  $('msg-diagnostico').textContent = 'Intenté descargar "prueba-diagnostico.csv". Dime si se abrió, se guardó o no pasó nada.';
+}
+
 function iniciar() {
   fechaAuto = hoyIso();
   $('fecha').value = fechaAuto;
@@ -330,12 +392,16 @@ function iniciar() {
   document.querySelectorAll('[data-vista]').forEach((b) => b.addEventListener('click', () => {
     estado.vista = b.dataset.vista;
     animarResumen = true;
+    redibujarAjustes = true;
     pintar();
     if (estado.vista === 'registrar') $('texto-rapido').focus({ preventScroll: true });
   }));
   $('texto-rapido').addEventListener('input', alEscribirRapido);
   $('tipo').addEventListener('change', pintarFormulario);
   $('form-registro').addEventListener('submit', guardar);
+  $('btn-diagnostico').addEventListener('click', ejecutarDiagnostico);
+  $('btn-copiar').addEventListener('click', copiarInforme);
+  $('btn-probar-descarga').addEventListener('click', probarDescarga);
   window.addEventListener('online', sincronizar);
   // Si dejas la app abierta de un día para otro, la fecha se actualiza sola (salvo que la hayas cambiado a mano).
   document.addEventListener('visibilitychange', () => {

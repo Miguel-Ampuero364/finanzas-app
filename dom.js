@@ -3,6 +3,16 @@ export function poner(nodo, ...hijos) {
   nodo.replaceChildren(...hijos.filter((h) => h !== null && h !== undefined && h !== false));
 }
 
+// Descarga un texto como archivo. Se espera antes de soltar la dirección: Safari a veces la necesita más tiempo.
+export function descargar(nombre, texto, tipo = 'text/csv;charset=utf-8') {
+  const url = URL.createObjectURL(new Blob([texto], { type: tipo }));
+  const a = el('a', { href: url, download: nombre });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+
 // Crea un elemento. Los textos se agregan como nodos de texto, nunca como HTML.
 export function el(tag, props = {}, ...hijos) {
   const e = document.createElement(tag);
