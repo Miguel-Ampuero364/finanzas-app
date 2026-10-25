@@ -1,3 +1,8 @@
+// replaceChildren escribe false, null y undefined como texto ("false", "null"): aquí se descartan.
+export function poner(nodo, ...hijos) {
+  nodo.replaceChildren(...hijos.filter((h) => h !== null && h !== undefined && h !== false));
+}
+
 // Crea un elemento. Los textos se agregan como nodos de texto, nunca como HTML.
 export function el(tag, props = {}, ...hijos) {
   const e = document.createElement(tag);

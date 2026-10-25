@@ -23,6 +23,7 @@ self.addEventListener('fetch', (e) => {
         caches.open(VERSION).then((c) => c.put(e.request, copia));
         return r;
       })
-      .catch(() => caches.match(e.request)),
+      // La dirección con ?espacio=… también abre sin conexión: se busca sin la parte de la consulta.
+      .catch(() => caches.match(e.request, { ignoreSearch: true }).then((r) => r ?? (e.request.mode === 'navigate' ? caches.match('./') : undefined))),
   );
 });

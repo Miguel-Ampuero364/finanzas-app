@@ -66,6 +66,7 @@ const api = () => {
 };
 
 let fechaAuto = '';
+let ultimaSync = 0;
 function hoyIso() {
   const d = new Date();
   const dos = (n) => String(n).padStart(2, '0');
@@ -85,6 +86,7 @@ function cargarCache() {
 let ultimoEnvio = { enviados: 0, error: null };
 
 async function sincronizar() {
+  ultimaSync = Date.now();
   const esp = estado.espacio;
   const puente = api();
   if (!puente) {
@@ -278,10 +280,13 @@ async function guardar(ev) {
   const msg = $('mensaje');
   const monto = Math.round(parseMontoTipeado($('monto').value) * 100) / 100;
   if (!(monto > 0)) { msg.textContent = 'El monto debe ser mayor que 0.'; return; }
+  if (monto > 10000000) { msg.textContent = 'El monto es demasiado grande (máximo Bs 10.000.000).'; return; }
   if (!$('categoria').value) { msg.textContent = 'Elige una categoría (sincroniza si la lista está vacía).'; return; }
   const esGasto = $('tipo').value === 'gasto';
   const id = nuevoId();
-  cola().agregar({
+  const colaDeEste = cola();
+  const faltaConexion = !api();
+  colaDeEste.agregar({
     id, tipo: $('tipo').value, fecha: isoAFecha($('fecha').value), categoria: $('categoria').value,
     beneficiario: esGasto ? $('beneficiario').value.trim() : '', descripcion: $('descripcion').value.trim(),
     monto, metodo: esGasto ? $('metodo').value : '',
@@ -293,8 +298,13 @@ async function guardar(ev) {
   msg.textContent = 'Guardado. Subiendo…';
   pintar();
   await sincronizar();
-  const resultado = resultadoGuardado(cola(), id, ultimoEnvio);
-  const rechazo = cola().lista().find((e) => e.id === id)?.rechazo;
+  if (faltaConexion) {
+    msg.textContent = 'Guardado en el celular. Falta configurar la conexión en Ajustes para subirlo a la hoja.';
+    $('texto-rapido').focus({ preventScroll: true });
+    return;
+  }
+  const resultado = resultadoGuardado(colaDeEste, id, ultimoEnvio);
+  const rechazo = colaDeEste.lista().find((e) => e.id === id)?.rechazo;
   msg.textContent = {
     enviada: 'Guardado en la hoja.',
     rechazada: `La hoja no lo aceptó. ${ERRORES[rechazo] ?? rechazo} Quítalo de la lista de pendientes y vuelve a registrarlo.`,
@@ -335,6 +345,8 @@ function iniciar() {
       $('fecha').value = hoy;
       fechaAuto = hoy;
     }
+    resumen.alVolver();
+    if (Date.now() - ultimaSync > 60000) sincronizar();
   });
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   cargarCache();

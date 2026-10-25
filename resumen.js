@@ -1,11 +1,11 @@
-import { el } from './dom.js';
+import { el, poner } from './dom.js';
 import { icono } from './iconos.js';
-import { formatMonto, formatCompacto } from './lib/money.js';
+import { formatMonto, formatCompacto, formatMovimiento, parseMonto } from './lib/money.js';
 import { claveMes, claveMesDe, etiquetaMes, etiquetaCorta, parseFecha } from './lib/dates.js';
 import { parsePeriodo, rangoPeriodo, periodoAnterior, contarMeses, opcionesPeriodo } from './lib/periodo.js';
 import {
   filtrarFilas, ordenarFilas, resumenPeriodo, porCategoria, porBeneficiario, serieMensual,
-  unirMovimientos, mesPodriaEstarIncompleto,
+  unirMovimientos, mesPodriaEstarIncompleto, VACIO, contarSinFecha,
 } from './lib/summary.js';
 import { geometriaSerie } from './lib/charts.js';
 import { normalizar } from './lib/suggest.js';
@@ -42,6 +42,7 @@ export function iniciarResumen({ obtener, limite }) {
   const inicial = () => ({ periodo: `mes:${hoyMes()}`, benef: '', cat: '', texto: '', orden: 'fecha', pagina: 1, todasCat: false });
   let S = inicial();
   let anchoSerie = 0;
+  let mesAlAbrir = hoyMes();
 
   // ---- Contexto del período elegido ----
   function contexto() {
@@ -84,8 +85,9 @@ export function iniciarResumen({ obtener, limite }) {
     const activos = $('f-activos');
     const quitar = (etiqueta, accion) => el('button', { type: 'button', class: 'etiqueta-activa', 'aria-label': `Quitar filtro ${etiqueta}`, onclick: accion }, etiqueta, icono('cerrar', 14));
     const lista = [];
-    if (S.cat) lista.push(quitar(`Categoría: ${S.cat}`, () => { S.cat = ''; S.pagina = 1; pintarTodo({ anim: true }); }));
-    if (S.texto) lista.push(quitar(`Búsqueda: ${S.texto}`, () => { S.texto = ''; $('f-texto').value = ''; S.pagina = 1; pintarTodo({ anim: false }); }));
+    if (S.benef) lista.push(quitar(`Persona: ${S.benef === VACIO ? 'Sin asignar' : S.benef}`, () => { S.benef = ''; S.pagina = 1; pintarTodo({ anim: true }); }));
+    if (S.cat) lista.push(quitar(`Categoría: ${S.cat === VACIO ? 'Sin categoría' : S.cat}`, () => { S.cat = ''; S.pagina = 1; pintarTodo({ anim: true }); }));
+    if (S.texto) lista.push(quitar(`Búsqueda en movimientos: ${S.texto}`, () => { S.texto = ''; $('f-texto').value = ''; S.pagina = 1; pintarTodo({ anim: false }); }));
     activos.hidden = lista.length === 0;
     activos.replaceChildren(...lista);
   }
@@ -96,7 +98,7 @@ export function iniciarResumen({ obtener, limite }) {
     const seccion = $('res-saldo');
     seccion.hidden = !s;
     if (!s) return;
-    seccion.replaceChildren(
+    poner(seccion, 
       el('h2', { class: 'kpi-titulo' }, 'Saldo actual'),
       el('p', { class: `num cifra ${s.actual < 0 ? 'negativo' : 'positivo'}` }, conSigno(s.actual)),
       el('p', { class: 'nota num' }, `Saldo inicial ${bs(s.inicial)} + ingresos ${bs(s.ingresos)} − gastos ${bs(s.gastos)}`),
@@ -109,8 +111,9 @@ export function iniciarResumen({ obtener, limite }) {
     if (delta === null) return null;
     if (delta === 0) return el('span', { class: 'delta' }, 'sin cambio');
     const bueno = (delta > 0) === subeEsBueno;
-    return el('span', { class: `delta ${bueno ? 'bien' : 'mal'}`, 'aria-label': `${delta > 0 ? 'subió' : 'bajó'} ${Math.abs(delta)} por ciento` },
-      icono(delta > 0 ? 'sube' : 'baja', 13), `${Math.abs(delta)}%`);
+    const pequeno = Math.abs(delta) < 1;
+    return el('span', { class: `delta ${bueno ? 'bien' : 'mal'}`, role: 'img', 'aria-label': `${delta > 0 ? 'subió' : 'bajó'} ${pequeno ? 'menos de 1' : Math.abs(delta)} por ciento` },
+      icono(delta > 0 ? 'sube' : 'baja', 13), pequeno ? '<1%' : `${Math.abs(delta)}%`);
   }
 
   function pintarKpi(c) {
@@ -122,43 +125,47 @@ export function iniciarResumen({ obtener, limite }) {
         el('span', { class: 'kpi-nombre' }, nombre),
         el('span', { class: 'num kpi-valor' }, bs(valor)),
         chipDelta(delta, subeEsBueno)),
-      el('div', { class: 'pista' }, el('div', { class: `relleno ${clase}`, style: `--w:${((valor / mayor) * 100).toFixed(1)}%` })));
+      el('div', { class: 'pista' }, el('div', { class: `relleno ${clase}`, style: `--w:${Math.min(100, Math.max(0, (valor / mayor) * 100)).toFixed(1)}%` })));
     const cifra = soloGastos ? r.gastos : r.balance;
-    $('res-kpi').replaceChildren(
+    poner($('res-kpi'), 
       el('h2', { class: 'kpi-titulo' }, soloGastos ? `Gastos · ${c.rotulo}` : `Balance · ${c.rotulo}`),
       el('p', { class: `num cifra ${soloGastos ? '' : cifra < 0 ? 'negativo' : 'positivo'}` }, soloGastos ? bs(cifra) : conSigno(cifra)),
       !soloGastos && fila('Ingresos', r.ingresos, r.delta.ingresos, true, 'ingreso'),
       fila('Gastos', r.gastos, r.delta.gastos, false, 'gasto'),
-      r.anterior && c.rotuloAnt ? el('p', { class: 'nota' }, `Cambio frente a ${c.rotuloAnt}`) : null,
+      r.anterior && c.rotuloAnt && (r.delta.gastos !== null || r.delta.ingresos !== null) ? el('p', { class: 'nota' }, `Cambio frente a ${c.rotuloAnt}`) : null,
     );
   }
+
+  // "Sin categoría" y "Sin asignar" son filas sin dato: para filtrar se usa el valor especial VACIO.
+  const filtroDe = (nombre, etiquetaVacia) => (nombre === etiquetaVacia ? VACIO : nombre);
 
   // ---- Filas de barras (categorías y personas) ----
   function filaBarra({ nombre, valor, escala, presupuesto, porcentaje, activo, alPulsar, etiquetaAccion }) {
     const excede = presupuesto !== null && presupuesto !== undefined && valor > presupuesto;
     return el('li', {},
-      el('button', { type: 'button', class: 'fila-barra', 'aria-pressed': String(activo), 'aria-label': `${etiquetaAccion} ${nombre}: ${bs(valor)}`, onclick: alPulsar },
+      el('button', { type: 'button', class: 'fila-barra', 'aria-pressed': String(activo), 'aria-label': `${etiquetaAccion} ${nombre}: ${bs(valor)}${presupuesto ? `, de ${bs(presupuesto)}, ${porcentaje}%` : ''}`, onclick: alPulsar },
         el('span', { class: 'fila-arriba' },
           el('span', { class: 'fila-nombre' }, nombre),
           el('span', { class: 'num fila-valor' }, bs(valor))),
         el('span', { class: 'pista' },
-          el('span', { class: `relleno ${excede ? 'gasto' : 'marca'}`, style: `--w:${Math.min(100, (valor / escala) * 100).toFixed(1)}%` }),
-          presupuesto ? el('span', { class: 'tope', style: `left:${Math.min(100, (presupuesto / escala) * 100).toFixed(1)}%`, 'aria-hidden': 'true' }) : null),
+          el('span', { class: `relleno ${excede ? 'gasto' : 'marca'}`, style: `--w:${Math.min(100, Math.max(0, (valor / escala) * 100)).toFixed(1)}%` }),
+          presupuesto ? el('span', { class: 'tope', style: `left:${Math.min(100, Math.max(0, (presupuesto / escala) * 100)).toFixed(1)}%`, 'aria-hidden': 'true' }) : null),
         presupuesto ? el('span', { class: `fila-pie ${excede ? 'excede' : ''}` }, `de ${bs(presupuesto)} · ${porcentaje}%`) : null));
   }
 
   function pintarCategorias(c) {
-    const datos = porCategoria(filtrarFilas(c.gastos, { ...c.rango, beneficiario: S.benef }), c.presupuestos, contarMeses(c.rango));
+    // El presupuesto es de toda la categoría: con una persona elegida no se compara.
+    const datos = porCategoria(filtrarFilas(c.gastos, { ...c.rango, beneficiario: S.benef }), S.benef ? {} : c.presupuestos, contarMeses(c.rango));
     const visibles = S.todasCat ? datos : datos.slice(0, MAX_CATEGORIAS);
     const escala = Math.max(1, ...datos.map((d) => Math.max(d.gastado, d.presupuesto ?? 0)));
-    $('res-cat').replaceChildren(
+    poner($('res-cat'), 
       el('h2', { id: 't-cat' }, 'Gastos por categoría'),
       datos.length === 0
         ? el('p', { class: 'vacio' }, 'Sin gastos en este período.')
         : el('ul', { class: 'barras' }, visibles.map((d) => filaBarra({
           nombre: d.categoria, valor: d.gastado, escala, presupuesto: d.presupuesto, porcentaje: d.porcentaje,
-          activo: normalizar(S.cat) === normalizar(d.categoria), etiquetaAccion: 'Filtrar por',
-          alPulsar: () => { S.cat = normalizar(S.cat) === normalizar(d.categoria) ? '' : d.categoria; S.pagina = 1; pintarTodo({ anim: false }); },
+          activo: normalizar(S.cat) === normalizar(filtroDe(d.categoria, 'Sin categoría')), etiquetaAccion: 'Filtrar por',
+          alPulsar: () => { const f = filtroDe(d.categoria, 'Sin categoría'); S.cat = normalizar(S.cat) === normalizar(f) ? '' : f; S.pagina = 1; pintarTodo({ anim: false }); },
         }))),
       datos.length > MAX_CATEGORIAS
         ? el('button', { type: 'button', class: 'btn ancho-total', onclick: () => { S.todasCat = !S.todasCat; pintarCategorias(c); } },
@@ -172,12 +179,12 @@ export function iniciarResumen({ obtener, limite }) {
     const seccion = $('res-ben');
     seccion.hidden = datos.length === 0;
     const escala = Math.max(1, ...datos.map((d) => d.total));
-    seccion.replaceChildren(
+    poner(seccion, 
       el('h2', { id: 't-ben' }, 'Gastos por persona'),
       el('ul', { class: 'barras' }, datos.map((d) => filaBarra({
         nombre: d.nombre, valor: d.total, escala, presupuesto: null, porcentaje: null,
-        activo: normalizar(S.benef) === normalizar(d.nombre), etiquetaAccion: 'Filtrar por',
-        alPulsar: () => { S.benef = normalizar(S.benef) === normalizar(d.nombre) ? '' : d.nombre; S.pagina = 1; pintarTodo({ anim: false }); },
+        activo: normalizar(S.benef) === normalizar(filtroDe(d.nombre, 'Sin asignar')), etiquetaAccion: 'Filtrar por',
+        alPulsar: () => { const f = filtroDe(d.nombre, 'Sin asignar'); S.benef = normalizar(S.benef) === normalizar(f) ? '' : f; S.pagina = 1; pintarTodo({ anim: false }); },
       }))),
     );
   }
@@ -198,7 +205,7 @@ export function iniciarResumen({ obtener, limite }) {
     const lectura = el('p', { class: 'lectura num', 'aria-live': 'polite' });
     const mostrar = (mes) => {
       const s = porMes.get(mes);
-      lectura.replaceChildren(
+      poner(lectura, 
         el('strong', {}, etiquetaMes(mes)),
         soloGastos ? null : ` · Ingresos ${bs(s.ingresos)}`,
         ` · Gastos ${bs(s.gastos)}`);
@@ -233,7 +240,7 @@ export function iniciarResumen({ obtener, limite }) {
       }),
     );
 
-    $('res-serie').replaceChildren(
+    poner($('res-serie'), 
       el('div', { class: 'serie-cabecera' },
         el('h2', { id: 't-serie' }, `Últimos ${nMeses} meses`),
         el('span', { class: 'leyenda' },
@@ -246,7 +253,9 @@ export function iniciarResumen({ obtener, limite }) {
 
   // ---- Movimientos ----
   function filasMov(c) {
-    return ordenarFilas(filtrarFilas(unirMovimientos(c.gastos, c.ingresos), filtroTexto(c)), S.orden);
+    // Las personas y las categorías del Resumen son de gastos: con uno de esos filtros, la lista muestra solo gastos.
+    const ingresos = S.benef || S.cat ? [] : c.ingresos;
+    return ordenarFilas(filtrarFilas(unirMovimientos(c.gastos, ingresos), filtroTexto(c)), S.orden);
   }
 
   function fechaCorta(texto) {
@@ -264,7 +273,7 @@ export function iniciarResumen({ obtener, limite }) {
       ? [el('li', { class: 'vacio' }, c.hayFiltros ? 'Ningún movimiento coincide con los filtros.' : 'Sin movimientos en este período.')]
       : visibles.map((f) => {
         const fecha = fechaCorta(f.fecha);
-        const m = Number(String(f.monto).replace(/\./g, '').replace(',', '.')) || 0;
+        const m = parseMonto(f.monto);
         const detalle = [String(f.categoria ?? '').trim(), String(f.beneficiario ?? '').trim(), f.tipo === 'gasto' ? String(f.metodo ?? '').trim() : ''].filter(Boolean).join(' · ');
         return el('li', { class: 'mov-fila' },
           el('span', { class: 'mov-fecha num' }, el('b', {}, fecha.dia), fecha.mes),
@@ -272,7 +281,7 @@ export function iniciarResumen({ obtener, limite }) {
             el('span', { class: 'mov-desc' }, String(f.descripcion ?? '').trim() || String(f.categoria ?? '').trim() || 'Sin descripción',
               f.pendiente ? el('em', { class: 'etiqueta-pend' }, 'Pendiente') : null),
             el('span', { class: 'mov-detalle' }, detalle)),
-          el('span', { class: `num mov-monto ${f.tipo}` }, f.tipo === 'ingreso' ? `+${bs(m)}` : `−${bs(m)}`));
+          el('span', { class: `num mov-monto ${f.tipo}` }, formatMovimiento(f.tipo, Number.isNaN(m) ? 0 : m)));
       })));
     const quedan = filas.length - visibles.length;
     const mas = $('mov-mas');
@@ -298,8 +307,13 @@ export function iniciarResumen({ obtener, limite }) {
     pintarPersonas(c);
     pintarSerie(c);
     pintarMov(c);
-    $('res-aviso').textContent = mesPodriaEstarIncompleto(c.gastos, c.rango.desde, limite) || mesPodriaEstarIncompleto(c.ingresos, c.rango.desde, limite)
-      ? 'La app solo trae los últimos movimientos de la hoja: los meses más antiguos pueden salir incompletos.' : '';
+    const avisos = [];
+    if (mesPodriaEstarIncompleto(c.gastos, c.rango.desde, limite) || mesPodriaEstarIncompleto(c.ingresos, c.rango.desde, limite)) {
+      avisos.push('La app solo trae los últimos movimientos de la hoja: los meses más antiguos pueden salir incompletos.');
+    }
+    const sinFecha = contarSinFecha(c.gastos) + contarSinFecha(c.ingresos);
+    if (sinFecha) avisos.push(`${sinFecha} ${sinFecha === 1 ? 'movimiento tiene' : 'movimientos tienen'} la fecha ilegible en la hoja: no entran en los totales ni en la lista (el saldo sí los cuenta).`);
+    $('res-aviso').textContent = avisos.join(' ');
   }
 
   // ---- Eventos fijos ----
@@ -326,6 +340,13 @@ export function iniciarResumen({ obtener, limite }) {
 
   return {
     pintar: (opciones) => pintarTodo({ anim: true, ...opciones }),
-    reiniciar: () => { S = inicial(); $('f-texto').value = ''; $('f-orden').value = 'fecha'; },
+    reiniciar: () => { S = inicial(); mesAlAbrir = hoyMes(); $('f-texto').value = ''; $('f-orden').value = 'fecha'; },
+    // Si la app estuvo abierta y cambió el mes, el período "este mes" avanza solo.
+    alVolver: () => {
+      const hoy = hoyMes();
+      if (hoy === mesAlAbrir) return;
+      if (S.periodo === `mes:${mesAlAbrir}`) S.periodo = `mes:${hoy}`;
+      mesAlAbrir = hoy;
+    },
   };
 }
