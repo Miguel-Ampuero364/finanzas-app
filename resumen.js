@@ -18,6 +18,11 @@ const MAX_CATEGORIAS = 7;
 const MESES_SERIE = 12;
 const bs = (n) => `Bs ${formatMonto(n)}`;
 const conSigno = (n) => (n < 0 ? `−${bs(-n)}` : bs(n));
+// Los centavos van más tenues que la parte entera, como en las apps de banco.
+function conDecimales(texto) {
+  const i = texto.lastIndexOf(',');
+  return i > 0 ? [texto.slice(0, i), el('span', { class: 'dec' }, texto.slice(i))] : [texto];
+}
 
 function svg(tag, attrs = {}, ...hijos) {
   const e = document.createElementNS(SVG, tag);
@@ -91,7 +96,7 @@ export function iniciarResumen({ obtener, limite }) {
     if (!s) return;
     poner(seccion, 
       el('h2', { class: 'kpi-titulo' }, 'Saldo actual'),
-      el('p', { class: `num cifra ${s.actual < 0 ? 'negativo' : 'positivo'}` }, conSigno(s.actual)),
+      el('p', { class: `num cifra ${s.actual < 0 ? 'negativo' : 'positivo'}` }, ...conDecimales(conSigno(s.actual))),
       el('p', { class: 'nota num' }, `Saldo inicial ${bs(s.inicial)} + ingresos ${bs(s.ingresos)} − gastos ${bs(s.gastos)}`),
       el('p', { class: 'nota' }, 'Todo el historial: no cambia con el período ni con los filtros.'),
     );
@@ -265,14 +270,15 @@ export function iniciarResumen({ obtener, limite }) {
       : visibles.map((f) => {
         const fecha = fechaCorta(f.fecha);
         const m = parseMonto(f.monto);
-        const detalle = [String(f.categoria ?? '').trim(), String(f.beneficiario ?? '').trim(), f.tipo === 'gasto' ? String(f.metodo ?? '').trim() : ''].filter(Boolean).join(' · ');
+        const cat = String(f.categoria ?? '').trim();
+        const detalle = [`${fecha.dia} ${fecha.mes}`.trim(), cat, String(f.beneficiario ?? '').trim(), f.tipo === 'gasto' ? String(f.metodo ?? '').trim() : ''].filter(Boolean).join(' · ');
         return el('li', { class: 'mov-fila' },
-          el('span', { class: 'mov-fecha num' }, el('b', {}, fecha.dia), fecha.mes),
+          el('span', { class: `mov-ini ${f.tipo}`, 'aria-hidden': 'true' }, cat[0] ?? (f.tipo === 'ingreso' ? '+' : '–')),
           el('span', { class: 'mov-texto' },
             el('span', { class: 'mov-desc' }, String(f.descripcion ?? '').trim() || String(f.categoria ?? '').trim() || 'Sin descripción',
               f.pendiente ? el('em', { class: 'etiqueta-pend' }, 'Pendiente') : null),
             el('span', { class: 'mov-detalle' }, detalle)),
-          el('span', { class: `num mov-monto ${f.tipo}` }, formatMovimiento(f.tipo, Number.isNaN(m) ? 0 : m)));
+          el('span', { class: `num mov-monto ${f.tipo}` }, ...conDecimales(formatMovimiento(f.tipo, Number.isNaN(m) ? 0 : m))));
       })));
     const quedan = filas.length - visibles.length;
     const mas = $('mov-mas');
