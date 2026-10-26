@@ -11,7 +11,10 @@ import { recogerDiagnostico } from './diagnostico.js';
 import { icono } from './iconos.js';
 import { iniciarResumen } from './resumen.js';
 import { ajustarSaldo } from './lib/summary.js';
-import { formatMonto, parseMontoTipeado } from './lib/money.js';
+import { formatMonto, parseMonto, parseMontoTipeado } from './lib/money.js';
+import { parseFecha } from './lib/dates.js';
+import { filaNueva, conAgregado, conEdicion, conBorrado, esperadoDe } from './lib/movimientos.js';
+import { fijosParaMostrar } from './lib/fijos.js';
 
 const LIMITE_FILAS = 1000;
 const NOMBRES = { miguel: 'Miguel', metalcorplex: 'METALCORPLEX' };
@@ -24,7 +27,10 @@ const ERRORES = {
   id: 'Identificador inválido.',
   interno: 'El puente tuvo un problema. Revisa la hoja.',
   cambio: 'La hoja cambió. Sincroniza y vuelve a intentar.',
+  fila: 'Esa fila ya no existe en la hoja.',
+  accion: 'El puente de este espacio es de una versión anterior y no sabe hacer eso. Hay que actualizarlo.',
 };
+const pad2 = (n) => String(n).padStart(2, '0');
 
 // ---- Almacenamiento local, con respaldo en memoria ----
 const memoria = new Map();
@@ -64,6 +70,7 @@ const estado = {
   saldo: null,
   filas: { gastos: [], ingresos: [] },
   deudas: [],
+  fijos: { gastos: [], ingresos: [] },
   sinConexion: false,
 };
 
@@ -90,6 +97,7 @@ function cargarCache() {
   estado.saldo = leerJson(`cache:${estado.espacio}:saldo`, null);
   estado.filas = leerJson(`cache:${estado.espacio}:filas`, { gastos: [], ingresos: [] });
   estado.deudas = leerJson(`cache:${estado.espacio}:deudas`, []);
+  estado.fijos = leerJson(`cache:${estado.espacio}:fijos`, { gastos: [], ingresos: [] });
 }
 
 // Resultado de la última sincronización, para que guardar() pueda decir la verdad.
@@ -108,13 +116,15 @@ async function sincronizar() {
   const envio = await enviarPendientes(cola(), puente);
   ultimoEnvio = envio;
   try {
-    const [cfg, filas, deudas] = await Promise.all([puente.configuracion(), puente.filas(LIMITE_FILAS), puente.deudas()]);
+    // Los fijos son un extra: si el puente es viejo o falla, el resto sigue igual.
+    const [cfg, filas, deudas, fijos] = await Promise.all([puente.configuracion(), puente.filas(LIMITE_FILAS), puente.deudas(), puente.fijos().catch(() => null)]);
     if (!cfg.ok) throw Object.assign(new Error(cfg.error), { codigo: cfg.error });
     // Si Miguel cambió de espacio mientras esperaba, estos datos son del otro: no se mezclan.
     guardarJson(`cache:${esp}:config`, cfg.config);
     if (cfg.saldo) guardarJson(`cache:${esp}:saldo`, cfg.saldo);
     if (filas.ok) guardarJson(`cache:${esp}:filas`, filas.rows);
     if (deudas.ok) guardarJson(`cache:${esp}:deudas`, deudas.debts);
+    if (fijos?.ok) guardarJson(`cache:${esp}:fijos`, fijos.fijos);
     if (esp !== estado.espacio) return;
     cargarCache();
     estado.sinConexion = false;
@@ -165,6 +175,35 @@ function pintarFormulario() {
   }, n)));
   $('beneficiario').hidden = deLaHoja.length > 0;
   pintarFrecuentes(esGasto);
+  pintarFijos();
+  document.querySelectorAll('[data-acceso="gasto"], [data-acceso="ingreso"]').forEach((b) => b.classList.toggle('activo', b.dataset.acceso === $('tipo').value));
+}
+
+function pintarFijos() {
+  const items = fijosParaMostrar(estado.fijos, estado.filas, new Date());
+  $('fijos-caja').hidden = items.length === 0;
+  $('fijos').replaceChildren(...items.map((f) => el('button', {
+    type: 'button', class: f.hecho ? 'chip fijo hecho' : 'chip fijo', onclick: () => usarFijo(f),
+    'aria-label': `${f.concepto}, Bs ${formatMonto(f.monto)}${f.hecho ? ', ya registrado este mes' : ''}`,
+  }, f.hecho ? icono('check', 14) : '', f.concepto, el('small', {}, formatMonto(f.monto)))));
+}
+
+// Un fijo llena el formulario (tipo, categoría, descripción, monto); solo queda revisar y guardar.
+function usarFijo(f) {
+  $('tipo').value = f.tipo;
+  pintarFormulario();
+  const lista = (f.tipo === 'gasto' ? estado.config?.categoriasGasto : estado.config?.categoriasIngreso) ?? [];
+  const cat = canonizar(f.categoria, lista);
+  if (cat) $('categoria').value = cat;
+  $('descripcion').value = f.concepto;
+  if (f.tipo === 'gasto') $('beneficiario').value = f.beneficiario;
+  $('monto').value = String(f.monto).replace('.', ',');
+  pintarFormulario();
+  $('mensaje').textContent = f.hecho
+    ? `"${f.concepto}" ya figura este mes. Si es otro pago, revisa y pulsa Guardar.`
+    : `Listo: revisa "${f.concepto}" y pulsa Guardar.`;
+  $('monto').focus();
+  $('monto').select();
 }
 
 function pintarFrecuentes(esGasto) {
@@ -214,6 +253,7 @@ let animarResumen = false;
 let redibujarAjustes = false;
 const resumen = iniciarResumen({
   limite: LIMITE_FILAS,
+  alAbrir: (f) => abrirMovimiento(f),
   obtener: () => ({
     ...filasConPendientes(), config: estado.config, espacio: estado.espacio,
     saldo: ajustarSaldo(estado.saldo, cola().pendientes()),
@@ -309,7 +349,7 @@ async function guardar(ev) {
   $('fecha').value = fechaAuto;
   msg.textContent = 'Guardado. Subiendo…';
   pintar();
-  await sincronizar();
+  await subirRegistros();
   if (faltaConexion) {
     msg.textContent = 'Guardado en el celular. Falta configurar la conexión en Ajustes para subirlo a la hoja.';
     $('texto-rapido').focus({ preventScroll: true });
@@ -324,6 +364,157 @@ async function guardar(ev) {
     pendiente: 'Guardado en el celular; se subirá cuando haya conexión.',
   }[resultado];
   $('texto-rapido').focus({ preventScroll: true });
+}
+
+// ---- Subir lo recién guardado sin releer toda la hoja ----
+// El puente contesta con la fila y el saldo nuevos: la app los aplica a su copia y listo.
+function aplicarEnviada(esp, entrada, r) {
+  if (r.fila) {
+    const filas = leerJson(`cache:${esp}:filas`, { gastos: [], ingresos: [] });
+    guardarJson(`cache:${esp}:filas`, conAgregado(filas, entrada.tipo, filaNueva(entrada, r.fila)));
+  }
+  if (r.saldo) guardarJson(`cache:${esp}:saldo`, r.saldo);
+}
+
+async function subirRegistros() {
+  const esp = estado.espacio;
+  const puente = api();
+  if (!puente) return sincronizar();
+  $('estado').textContent = 'Subiendo…';
+  let faltaSaldo = false;
+  const envio = await enviarPendientes(cola(), puente, (entrada, r) => {
+    aplicarEnviada(esp, entrada, r);
+    if (!r.saldo) faltaSaldo = true;
+  });
+  ultimoEnvio = envio;
+  // Un puente viejo no devuelve el saldo: en ese caso se relee todo como antes.
+  if (faltaSaldo) return sincronizar();
+  if (esp !== estado.espacio) return;
+  cargarCache();
+  const quedan = cola().pendientes().length;
+  $('estado').textContent = envio.error === 'clave' ? ERRORES.clave
+    : envio.error === 'puente' ? 'El puente no respondió bien; se reintentará.'
+    : envio.error === 'red' ? 'Sin conexión: se subirá cuando haya señal.'
+    : quedan ? `${quedan} pendiente(s) de subir` : 'Al día';
+  pintar();
+}
+
+// ---- Corregir o borrar un movimiento ----
+let editando = null;
+let confirmandoBorrado = false;
+
+function llenarSelect(select, valores, actual, textoVacio = '') {
+  const lista = [...valores];
+  if (actual !== undefined && actual !== null && !lista.includes(actual)) lista.push(actual);
+  select.replaceChildren(...lista.map((v) => el('option', { value: v }, v === '' ? textoVacio : String(v).trim())));
+  select.value = actual ?? '';
+}
+
+function abrirMovimiento(f) {
+  if (!estado.config) { $('estado').textContent = 'Sincroniza primero para poder editar.'; return; }
+  editando = f;
+  confirmandoBorrado = false;
+  const esGasto = f.tipo === 'gasto';
+  $('dlg-titulo').textContent = esGasto ? 'Editar gasto' : 'Editar ingreso';
+  const p = parseFecha(f.fecha);
+  $('m-fecha').value = p ? `${p.anio}-${pad2(p.mes)}-${pad2(p.dia)}` : '';
+  const n = parseMonto(f.monto);
+  $('m-monto').value = Number.isNaN(n) ? '' : String(n).replace('.', ',');
+  $('m-descripcion').value = f.descripcion ?? '';
+  llenarSelect($('m-categoria'), (esGasto ? estado.config.categoriasGasto : estado.config.categoriasIngreso) ?? [], f.categoria);
+  $('m-gasto').hidden = !esGasto;
+  const personas = (estado.config.beneficiarios ?? []).map((x) => String(x).trim()).filter(Boolean);
+  llenarSelect($('m-beneficiario'), ['', ...personas], (f.beneficiario ?? '').trim(), 'Sin asignar');
+  llenarSelect($('m-metodo'), ['QR', 'Efectivo', 'Tarjeta', 'Transferencia'], f.metodo || 'QR');
+  $('m-mensaje').textContent = '';
+  $('m-borrar').textContent = 'Borrar';
+  $('dlg-mov').showModal();
+}
+
+function ocupadoMov(si) {
+  for (const id of ['m-guardar', 'm-borrar', 'm-cancelar']) $(id).disabled = si;
+}
+
+// Manda el cambio al puente y, si lo acepta, lo aplica a la copia del teléfono.
+async function ejecutarCambio(llamada, aplicar, exito) {
+  const puente = api();
+  const esp = estado.espacio;
+  if (!puente) { $('m-mensaje').textContent = 'Configura la conexión en Ajustes.'; return; }
+  ocupadoMov(true);
+  $('m-mensaje').textContent = 'Guardando…';
+  try {
+    const r = await llamada(puente);
+    if (r.ok) {
+      const filas = aplicar(leerJson(`cache:${esp}:filas`, { gastos: [], ingresos: [] }));
+      guardarJson(`cache:${esp}:filas`, filas);
+      if (r.saldo) guardarJson(`cache:${esp}:saldo`, r.saldo);
+      $('dlg-mov').close();
+      if (esp === estado.espacio) {
+        cargarCache();
+        $('estado').textContent = exito;
+        pintar();
+      }
+    } else if (r.error === 'cambio' || r.error === 'fila') {
+      $('dlg-mov').close();
+      $('estado').textContent = 'Esa fila cambió en la hoja. Sincronizando; vuelve a intentarlo.';
+      sincronizar();
+    } else {
+      $('m-mensaje').textContent = ERRORES[r.error] ?? 'No se pudo guardar el cambio.';
+    }
+  } catch {
+    $('m-mensaje').textContent = 'Necesitas conexión para corregir o borrar.';
+  }
+  ocupadoMov(false);
+}
+
+async function guardarMovimiento(ev) {
+  ev.preventDefault();
+  const f = editando;
+  if (!f) return;
+  const msg = $('m-mensaje');
+  const monto = Math.round(parseMontoTipeado($('m-monto').value) * 100) / 100;
+  if (!(monto > 0)) { msg.textContent = 'El monto debe ser mayor que 0.'; return; }
+  if (monto > 10000000) { msg.textContent = 'El monto es demasiado grande (máximo Bs 10.000.000).'; return; }
+  if (!$('m-fecha').value) { msg.textContent = 'Elige una fecha.'; return; }
+  if (!$('m-categoria').value) { msg.textContent = 'Elige una categoría.'; return; }
+  const esGasto = f.tipo === 'gasto';
+  const entrada = {
+    tipo: f.tipo, fecha: isoAFecha($('m-fecha').value), categoria: $('m-categoria').value,
+    beneficiario: esGasto ? $('m-beneficiario').value : '', descripcion: $('m-descripcion').value.trim(),
+    monto, metodo: esGasto ? $('m-metodo').value : '',
+  };
+  await ejecutarCambio(
+    (puente) => puente.actualizar(f.tipo, f.fila, esperadoDe(f), entrada),
+    (filas) => conEdicion(filas, f.tipo, f.fila, filaNueva(entrada, f.fila)),
+    'Movimiento corregido.',
+  );
+}
+
+async function borrarMovimiento() {
+  const f = editando;
+  if (!f) return;
+  if (!confirmandoBorrado) {
+    confirmandoBorrado = true;
+    $('m-borrar').textContent = 'Toca otra vez para borrar';
+    $('m-mensaje').textContent = 'Se borra la fila de tu hoja de Google. Esto no se puede deshacer desde la app.';
+    return;
+  }
+  await ejecutarCambio(
+    (puente) => puente.borrar(f.tipo, f.fila, esperadoDe(f)),
+    (filas) => conBorrado(filas, f.tipo, f.fila),
+    'Movimiento borrado.',
+  );
+}
+
+// Accesos rápidos de la pantalla Registrar.
+function usarAcceso(que) {
+  if (que === 'gasto' || que === 'ingreso') {
+    $('tipo').value = que;
+    pintarFormulario();
+    $('monto').focus();
+    return;
+  }
+  document.querySelector(`nav [data-vista="${que}"]`).click();
 }
 
 // ---- Tema (claro, oscuro o el del teléfono) ----
@@ -416,6 +607,12 @@ function iniciar() {
     pintar();
     if (estado.vista === 'registrar') $('texto-rapido').focus({ preventScroll: true });
   }));
+  document.querySelectorAll('.acceso-icono').forEach((c) => c.append(icono(c.dataset.icono, 22)));
+  document.querySelectorAll('[data-acceso]').forEach((b) => b.addEventListener('click', () => usarAcceso(b.dataset.acceso)));
+  $('form-mov').addEventListener('submit', guardarMovimiento);
+  $('m-borrar').addEventListener('click', borrarMovimiento);
+  $('m-cancelar').addEventListener('click', () => $('dlg-mov').close());
+  $('dlg-mov').addEventListener('click', (e) => { if (e.target === $('dlg-mov')) $('dlg-mov').close(); });
   $('texto-rapido').addEventListener('input', alEscribirRapido);
   $('tipo').addEventListener('change', pintarFormulario);
   $('form-registro').addEventListener('submit', guardar);

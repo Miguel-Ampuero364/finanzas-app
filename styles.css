@@ -203,3 +203,28 @@ main.ancho { max-width: 1040px; }
 
 #apariencia { margin-top: 14px; }
 #apariencia .chips { padding-bottom: 0; }
+
+/* ---- Accesos rápidos ---- */
+.accesos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+.acceso { display: grid; justify-items: center; gap: 6px; padding: 10px 2px 8px; font: inherit; font-size: 12px; font-weight: 600; color: var(--suave); background: var(--papel); border: 1px solid var(--linea); border-radius: var(--radio-medio); cursor: pointer; transition: transform .2s var(--ease), border-color .2s var(--ease); }
+.acceso:active { transform: scale(.97); }
+.acceso-icono { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; color: var(--sobre-lima); background: var(--lima); }
+.acceso.activo { border-color: var(--marca); color: var(--texto); }
+
+/* ---- Fijos ---- */
+#fijos-caja { margin-bottom: 10px; }
+#fijos-caja .chips { padding-bottom: 4px; }
+.chip.fijo { display: inline-flex; align-items: center; gap: 6px; }
+.chip.fijo small { font-size: 12px; font-weight: 500; opacity: .75; font-variant-numeric: tabular-nums; }
+.chip.fijo.hecho { opacity: .6; }
+.chip.fijo.hecho svg { color: var(--marca); }
+
+/* ---- Corregir un movimiento ---- */
+.mov-fila.editable { cursor: pointer; }
+.mov-fila.editable:hover { background: var(--papel-2); }
+.mov-fila.editable:focus-visible { outline: 2px solid var(--marca); outline-offset: -2px; border-radius: var(--radio-medio); }
+dialog { width: min(92vw, 440px); max-height: 92vh; overflow: auto; padding: 18px; color: var(--texto); background: var(--papel); border: 1px solid var(--linea); border-radius: 24px; box-shadow: 0 20px 60px rgba(0, 0, 0, .35); }
+dialog::backdrop { background: rgba(0, 0, 0, .5); }
+dialog h2 { margin-bottom: 14px; }
+.acciones-dlg { display: grid; gap: 8px; margin-top: 8px; }
+.btn.peligro { color: var(--gasto-texto); border-color: color-mix(in srgb, var(--gasto) 55%, var(--linea)); }

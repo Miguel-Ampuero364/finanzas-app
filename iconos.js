@@ -8,6 +8,7 @@ const FORMAS = {
   sube: [['path', { d: 'M12 19V5' }], ['path', { d: 'M6.5 10.5L12 5l5.5 5.5' }]],
   baja: [['path', { d: 'M12 5v14' }], ['path', { d: 'M6.5 13.5L12 19l5.5-5.5' }]],
   mas: [['path', { d: 'M12 5v14' }], ['path', { d: 'M5 12h14' }]],
+  check: [['path', { d: 'M5 12.5l4.5 4.5L19 7.5' }]],
   grafico: [['path', { d: 'M5 20V11' }], ['path', { d: 'M12 20V4' }], ['path', { d: 'M19 20v-6' }]],
   lista: [['path', { d: 'M9 6h11' }], ['path', { d: 'M9 12h11' }], ['path', { d: 'M9 18h11' }], ['path', { d: 'M4.5 6h.01' }], ['path', { d: 'M4.5 12h.01' }], ['path', { d: 'M4.5 18h.01' }]],
   ajustes: [['circle', { cx: 12, cy: 12, r: 3 }], ['path', { d: 'M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8' }]],

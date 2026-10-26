@@ -32,7 +32,7 @@ function svg(tag, attrs = {}, ...hijos) {
 }
 
 // obtener() -> { gastos, ingresos, config, espacio, hayDatosGuardados }; limite = filas que trae el puente.
-export function iniciarResumen({ obtener, limite }) {
+export function iniciarResumen({ obtener, limite, alAbrir = null }) {
   const $ = (id) => document.getElementById(id);
   const hoyMes = () => claveMesDe(new Date());
   const inicial = () => ({ periodo: `mes:${hoyMes()}`, benef: '', cat: '', texto: '', orden: 'fecha', pagina: 1, todasCat: false });
@@ -272,7 +272,14 @@ export function iniciarResumen({ obtener, limite }) {
         const m = parseMonto(f.monto);
         const cat = String(f.categoria ?? '').trim();
         const detalle = [`${fecha.dia} ${fecha.mes}`.trim(), cat, String(f.beneficiario ?? '').trim(), f.tipo === 'gasto' ? String(f.metodo ?? '').trim() : ''].filter(Boolean).join(' · ');
-        return el('li', { class: 'mov-fila' },
+        const editable = Boolean(alAbrir && f.fila && !f.pendiente);
+        return el('li', {
+          class: editable ? 'mov-fila editable' : 'mov-fila',
+          role: editable ? 'button' : false,
+          tabindex: editable ? '0' : false,
+          onclick: editable ? () => alAbrir(f) : false,
+          onkeydown: editable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); alAbrir(f); } } : false,
+        },
           el('span', { class: `mov-ini ${f.tipo}`, 'aria-hidden': 'true' }, cat[0] ?? (f.tipo === 'ingreso' ? '+' : '–')),
           el('span', { class: 'mov-texto' },
             el('span', { class: 'mov-desc' }, String(f.descripcion ?? '').trim() || String(f.categoria ?? '').trim() || 'Sin descripción',

@@ -27,7 +27,17 @@
 
   <main>
     <section id="vista-registrar" class="vista">
+      <div class="accesos" role="group" aria-label="Accesos rápidos">
+        <button type="button" class="acceso" data-acceso="gasto"><span class="acceso-icono" data-icono="baja"></span>Gasto</button>
+        <button type="button" class="acceso" data-acceso="ingreso"><span class="acceso-icono" data-icono="sube"></span>Ingreso</button>
+        <button type="button" class="acceso" data-acceso="deudas"><span class="acceso-icono" data-icono="lista"></span>Deudas</button>
+        <button type="button" class="acceso" data-acceso="resumen"><span class="acceso-icono" data-icono="grafico"></span>Resumen</button>
+      </div>
       <form id="form-registro" autocomplete="off">
+        <div id="fijos-caja" hidden>
+          <span class="etiqueta">Fijos de la hoja: un toque llena todo</span>
+          <div id="fijos" class="chips" role="group" aria-label="Gastos e ingresos fijos"></div>
+        </div>
         <div id="frecuentes-caja" hidden>
           <span class="etiqueta">Frecuentes: un toque llena todo, solo revisa el monto</span>
           <div id="frecuentes" class="chips" role="group" aria-label="Gastos frecuentes"></div>
@@ -88,6 +98,7 @@
             <h2 id="t-mov">Movimientos</h2>
             <span id="mov-cuenta" class="nota"></span>
           </div>
+          <p class="nota">Toca un movimiento para corregirlo o borrarlo.</p>
           <div class="mov-controles">
             <label class="busca">
               <span class="sr">Buscar movimientos</span>
@@ -136,6 +147,28 @@
       </div>
     </section>
   </main>
+
+  <dialog id="dlg-mov" aria-labelledby="dlg-titulo">
+    <form id="form-mov" autocomplete="off">
+      <h2 id="dlg-titulo">Editar movimiento</h2>
+      <div class="fila">
+        <label>Fecha <input id="m-fecha" type="date" required></label>
+        <label>Monto (Bs) <input id="m-monto" type="text" inputmode="decimal" required></label>
+      </div>
+      <label>Descripción <input id="m-descripcion" type="text" maxlength="200"></label>
+      <label>Categoría <select id="m-categoria" required></select></label>
+      <div id="m-gasto">
+        <label>Beneficiario <select id="m-beneficiario"></select></label>
+        <label>Método <select id="m-metodo"></select></label>
+      </div>
+      <p id="m-mensaje" class="nota" role="status"></p>
+      <div class="acciones-dlg">
+        <button type="submit" class="principal" id="m-guardar">Guardar cambios</button>
+        <button type="button" class="btn peligro" id="m-borrar">Borrar</button>
+        <button type="button" class="btn" id="m-cancelar">Cancelar</button>
+      </div>
+    </form>
+  </dialog>
 
   <nav>
     <button type="button" data-vista="registrar">Registrar</button>
