@@ -1,4 +1,5 @@
 import { crearApi, ErrorDeRed } from './lib/api.js';
+import { normalizarTema, colorBarra } from './lib/tema.js';
 import { crearCola, nuevoId, enviarPendientes, resultadoGuardado } from './lib/queue.js';
 import { interpretarTexto } from './lib/parser.js';
 import { sugerir, canonizar, normalizar } from './lib/suggest.js';
@@ -325,6 +326,25 @@ async function guardar(ev) {
   $('texto-rapido').focus({ preventScroll: true });
 }
 
+// ---- Tema (claro, oscuro o el del teléfono) ----
+function temaGuardado() {
+  try { return normalizarTema(localStorage.getItem('tema')); } catch { return 'auto'; }
+}
+
+function aplicarTema(tema) {
+  const raiz = document.documentElement;
+  if (tema === 'auto') delete raiz.dataset.tema; else raiz.dataset.tema = tema;
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => {
+    m.content = tema === 'auto' ? colorBarra('auto', m.media.includes('dark')) : colorBarra(tema, false);
+  });
+  document.querySelectorAll('#temas [data-tema]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tema === tema)));
+}
+
+function elegirTema(tema) {
+  try { localStorage.setItem('tema', tema); } catch { /* sin almacenamiento: vale solo hasta cerrar */ }
+  aplicarTema(tema);
+}
+
 // ---- Diagnóstico del teléfono ----
 let informeTexto = '';
 
@@ -399,6 +419,8 @@ function iniciar() {
   $('texto-rapido').addEventListener('input', alEscribirRapido);
   $('tipo').addEventListener('change', pintarFormulario);
   $('form-registro').addEventListener('submit', guardar);
+  aplicarTema(temaGuardado());
+  document.querySelectorAll('#temas [data-tema]').forEach((b) => b.addEventListener('click', () => elegirTema(b.dataset.tema)));
   $('btn-diagnostico').addEventListener('click', ejecutarDiagnostico);
   $('btn-copiar').addEventListener('click', copiarInforme);
   $('btn-probar-descarga').addEventListener('click', probarDescarga);

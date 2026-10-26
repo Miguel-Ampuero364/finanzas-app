@@ -14,6 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="Finanzas">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="stylesheet" href="styles.css">
+  <script>try { var t = localStorage.getItem('tema'); if (t === 'claro' || t === 'oscuro') document.documentElement.dataset.tema = t; } catch (e) {}</script>
 </head>
 <body>
   <header>
@@ -113,6 +114,15 @@
 
     <section id="vista-ajustes" class="vista" hidden>
       <div id="contenido-ajustes"></div>
+      <div class="tarjeta" id="apariencia">
+        <h3>Apariencia</h3>
+        <p class="nota">Automático sigue el modo claro u oscuro de tu teléfono.</p>
+        <div id="temas" class="chips" role="group" aria-label="Tema">
+          <button type="button" class="chip" data-tema="auto" aria-pressed="false">Automático</button>
+          <button type="button" class="chip" data-tema="claro" aria-pressed="false">Claro</button>
+          <button type="button" class="chip" data-tema="oscuro" aria-pressed="false">Oscuro</button>
+        </div>
+      </div>
       <div class="tarjeta" id="diagnostico">
         <h3>Diagnóstico del teléfono</h3>
         <p class="nota">Revisa si la app funciona bien en este teléfono y arma un informe para compartirlo. No incluye claves, direcciones ni los datos de tus hojas.</p>
